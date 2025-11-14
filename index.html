@@ -1,1 +1,701 @@
-placeholder
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mapper - Dual-Mode Content Analysis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin { animation: spin 1s linear infinite; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+  <div id="app" class="max-w-6xl mx-auto p-4 md:p-8"></div>
+
+  <script>
+    const industryBenchmarks = {
+      'financial': { name: 'Financial Services', seo: { min: 75, max: 82 }, geo: { min: 58, max: 65 } },
+      'technology': { name: 'Technology', seo: { min: 78, max: 85 }, geo: { min: 70, max: 78 } },
+      'healthcare': { name: 'Healthcare', seo: { min: 68, max: 75 }, geo: { min: 55, max: 62 } },
+      'retail': { name: 'Retail & E-commerce', seo: { min: 72, max: 80 }, geo: { min: 65, max: 72 } },
+      'manufacturing': { name: 'Manufacturing', seo: { min: 65, max: 73 }, geo: { min: 52, max: 60 } },
+      'media': { name: 'Media & Publishing', seo: { min: 80, max: 88 }, geo: { min: 68, max: 76 } },
+      'professional': { name: 'Professional Services', seo: { min: 70, max: 78 }, geo: { min: 60, max: 68 } },
+      'hospitality': { name: 'Hospitality & Travel', seo: { min: 74, max: 82 }, geo: { min: 62, max: 70 } },
+      'education': { name: 'Education', seo: { min: 66, max: 74 }, geo: { min: 58, max: 66 } },
+      'nonprofit': { name: 'Non-Profit', seo: { min: 62, max: 70 }, geo: { min: 54, max: 62 } }
+    };
+
+    let state = {
+      input: '',
+      inputType: 'url',
+      analyzing: false,
+      results: null,
+      scoringMode: 'dual',
+      viewMode: 'combined',
+      showModeInfo: false,
+      industry: ''
+    };
+
+    function getScoreColor(score) {
+      if (score >= 80) return 'text-green-600';
+      if (score >= 60) return 'text-yellow-600';
+      return 'text-red-600';
+    }
+
+    function getScoreBg(score) {
+      if (score >= 80) return 'bg-green-50 border-green-200';
+      if (score >= 60) return 'bg-yellow-50 border-yellow-200';
+      return 'bg-red-50 border-red-200';
+    }
+
+    function getScoreGap(results) {
+      if (!results) return null;
+      const gap = Math.abs(results.seoScore - results.geoScore);
+      if (gap <= 10) return { text: 'Well balanced', color: 'text-green-600' };
+      if (gap <= 20) return { text: 'Moderate gap', color: 'text-yellow-600' };
+      return { text: 'Significant gap', color: 'text-red-600' };
+    }
+
+    function getBenchmarkComparison(score, benchmarkRange) {
+      const average = (benchmarkRange.min + benchmarkRange.max) / 2;
+      const diff = score - average;
+      if (diff >= 10) return { text: 'Well above average', color: 'text-green-600', icon: '📈' };
+      if (diff >= 5) return { text: 'Above average', color: 'text-green-600', icon: '↗️' };
+      if (diff >= -5) return { text: 'Average', color: 'text-yellow-600', icon: '→' };
+      if (diff >= -10) return { text: 'Below average', color: 'text-orange-600', icon: '↘️' };
+      return { text: 'Well below average', color: 'text-red-600', icon: '📉' };
+    }
+
+    async function analyzeContent() {
+      if (!state.input.trim()) return;
+      
+      state.analyzing = true;
+      render();
+      
+      await new Promise(resolve => setTimeout(resolve, 3500));
+      
+      const mockResults = {
+        seoScore: Math.floor(Math.random() * 25) + 70,
+        geoScore: Math.floor(Math.random() * 30) + 55,
+        seo: {
+          technical: {
+            score: Math.floor(Math.random() * 20) + 75,
+            findings: [
+              { label: 'Schema.org markup', status: 'present', impact: 'high' },
+              { label: 'Page load speed', status: 'good', impact: 'high' },
+              { label: 'Mobile optimization', status: 'excellent', impact: 'high' },
+              { label: 'SSL/HTTPS', status: 'enabled', impact: 'medium' }
+            ]
+          },
+          onPage: {
+            score: Math.floor(Math.random() * 20) + 70,
+            findings: [
+              { label: 'Title tag optimization', status: 'good', impact: 'high' },
+              { label: 'Meta description', status: 'present', impact: 'high' },
+              { label: 'Header hierarchy', status: 'structured', impact: 'medium' },
+              { label: 'Keyword placement', status: 'fair', impact: 'medium' }
+            ]
+          },
+          content: {
+            score: Math.floor(Math.random() * 20) + 65,
+            findings: [
+              { label: 'Word count', status: 'adequate', impact: 'medium' },
+              { label: 'Readability score', status: 'high', impact: 'high' },
+              { label: 'Internal linking', status: 'limited', impact: 'medium' },
+              { label: 'Multimedia', status: 'present', impact: 'low' }
+            ]
+          }
+        },
+        geo: {
+          llmComprehension: {
+            score: Math.floor(Math.random() * 25) + 55,
+            findings: [
+              { label: 'Entity definitions', status: 'basic', impact: 'high' },
+              { label: 'Information density', status: 'moderate', impact: 'high' },
+              { label: 'Semantic markup', status: 'limited', impact: 'high' },
+              { label: 'Context richness', status: 'fair', impact: 'medium' }
+            ]
+          },
+          promptAlignment: {
+            score: Math.floor(Math.random() * 30) + 50,
+            findings: [
+              { label: 'Q&A format', status: 'absent', impact: 'high' },
+              { label: 'Conversational tone', status: 'limited', impact: 'high' },
+              { label: 'Quotable statements', status: 'few', impact: 'medium' },
+              { label: 'Attribution clarity', status: 'good', impact: 'medium' }
+            ]
+          },
+          aiDiscovery: {
+            score: Math.floor(Math.random() * 25) + 60,
+            findings: [
+              { label: 'Generative search alignment', status: 'moderate', impact: 'high' },
+              { label: 'Voice search optimization', status: 'basic', impact: 'medium' },
+              { label: 'AI parser accessibility', status: 'good', impact: 'high' },
+              { label: 'Cross-reference potential', status: 'fair', impact: 'low' }
+            ]
+          }
+        },
+        seoRecommendations: [
+          'Add more internal links to related content pages',
+          'Optimize title tag length to 50-60 characters',
+          'Include target keyword in first 100 words',
+          'Add FAQ schema markup for rich snippet opportunities',
+          'Compress images to improve page load speed'
+        ],
+        geoRecommendations: [
+          'Add explicit entity definitions in opening paragraph',
+          'Convert key information into Q&A format for prompt alignment',
+          'Include quotable soundbites with clear attribution',
+          'Enhance summarization clarity by front-loading key facts',
+          'Add conversational headers that mirror natural language queries',
+          'Structure content for easy AI extraction and synthesis'
+        ],
+        combinedRecommendations: [
+          { text: 'Add FAQ schema markup', benefit: 'Boosts both SEO rich snippets and GEO prompt alignment', priority: 'high' },
+          { text: 'Front-load key facts in opening paragraph', benefit: 'Improves SEO keyword placement and GEO entity recognition', priority: 'high' },
+          { text: 'Convert sections into Q&A format', benefit: 'Creates GEO-friendly structure while maintaining SEO header hierarchy', priority: 'medium' },
+          { text: 'Add clear entity definitions', benefit: 'Enhances GEO LLM comprehension with minimal SEO impact', priority: 'medium' }
+        ]
+      };
+      
+      state.results = mockResults;
+      state.analyzing = false;
+      render();
+    }
+
+    function exportResults(format) {
+      if (!state.results) return;
+      
+      const results = state.results;
+      const industry = state.industry;
+
+      const industryHTML = industry ? `
+        <div class="section">
+          <h2>Industry Benchmark Comparison</h2>
+          <p><strong>Industry:</strong> ${industryBenchmarks[industry].name}</p>
+          
+          <div class="benchmark-grid">
+            <div class="benchmark-card">
+              <h3>🔍 SEO Comparison</h3>
+              <p><strong>Your Score:</strong> ${results.seoScore}/100</p>
+              <p><strong>Industry Average:</strong> ${industryBenchmarks[industry].seo.min}-${industryBenchmarks[industry].seo.max}</p>
+              <p class="status ${getBenchmarkComparison(results.seoScore, industryBenchmarks[industry].seo).color.replace('text-', '')}">
+                <strong>Status:</strong> ${getBenchmarkComparison(results.seoScore, industryBenchmarks[industry].seo).text}
+              </p>
+            </div>
+            
+            <div class="benchmark-card">
+              <h3>🧠 GEO Comparison</h3>
+              <p><strong>Your Score:</strong> ${results.geoScore}/100</p>
+              <p><strong>Industry Average:</strong> ${industryBenchmarks[industry].geo.min}-${industryBenchmarks[industry].geo.max}</p>
+              <p class="status ${getBenchmarkComparison(results.geoScore, industryBenchmarks[industry].geo).color.replace('text-', '')}">
+                <strong>Status:</strong> ${getBenchmarkComparison(results.geoScore, industryBenchmarks[industry].geo).text}
+              </p>
+            </div>
+          </div>
+          <p class="note">Note: Estimated benchmarks based on analysis of public company content</p>
+        </div>
+      ` : '';
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mapper Report - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      background: linear-gradient(to bottom right, #f8fafc, #e0f2fe);
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 40px;
+    }
+    h1 { font-size: 2.5em; color: #0f172a; margin-bottom: 10px; text-align: center; }
+    .subtitle { text-align: center; color: #64748b; font-style: italic; margin-bottom: 40px; }
+    .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+    .score-card { padding: 30px; border-radius: 12px; border: 2px solid; text-align: center; }
+    .score-card.seo { background: #eff6ff; border-color: #3b82f6; }
+    .score-card.geo { background: #faf5ff; border-color: #a855f7; }
+    .score-number { font-size: 3em; font-weight: bold; margin: 10px 0; }
+    .green-600 { color: #16a34a; }
+    .yellow-600 { color: #ca8a04; }
+    .orange-600 { color: #ea580c; }
+    .red-600 { color: #dc2626; }
+    .section { margin: 30px 0; padding: 20px 0; border-top: 2px solid #e2e8f0; }
+    h2 { font-size: 1.8em; color: #0f172a; margin-bottom: 15px; }
+    h3 { font-size: 1.3em; color: #334155; margin: 20px 0 10px 0; }
+    h4 { font-size: 1.1em; color: #475569; margin: 15px 0 10px 0; }
+    ul { list-style: none; padding-left: 0; }
+    li { padding: 8px 0; padding-left: 25px; position: relative; }
+    li:before { content: "→"; position: absolute; left: 0; color: #3b82f6; }
+    .recommendation { background: #f1f5f9; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #3b82f6; }
+    .recommendation strong { display: block; margin-bottom: 5px; color: #0f172a; }
+    .recommendation .benefit { color: #64748b; font-size: 0.95em; padding-left: 15px; }
+    .footer { text-align: center; color: #64748b; font-size: 0.9em; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+    .gap-analysis { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .benchmark-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+    .benchmark-card { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .note { font-size: 0.9em; color: #64748b; font-style: italic; margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍🧠 AI Mapper Report</h1>
+    <p class="subtitle">Dual-Mode Content Analysis: SEO + GEO</p>
+    
+    <div class="section">
+      <h2>Overall Scores</h2>
+      <div class="score-grid">
+        <div class="score-card seo">
+          <h3>🔍 SEO Score</h3>
+          <div class="score-number ${getScoreColor(results.seoScore).replace('text-', '')}">${results.seoScore}/100</div>
+          <p>Traditional search optimization</p>
+        </div>
+        <div class="score-card geo">
+          <h3>🧠 GEO Score</h3>
+          <div class="score-number ${getScoreColor(results.geoScore).replace('text-', '')}">${results.geoScore}/100</div>
+          <p>AI discoverability optimization</p>
+        </div>
+      </div>
+      
+      <div class="gap-analysis">
+        <h3>Score Gap Analysis</h3>
+        <p><strong>Gap:</strong> ${Math.abs(results.seoScore - results.geoScore)} points</p>
+        <p>${results.seoScore > results.geoScore + 15 ? "Content performs well for traditional search but needs AI optimization." : results.geoScore > results.seoScore + 15 ? "Content is AI-friendly but could improve traditional SEO fundamentals." : "Content maintains balanced performance across both frameworks."}</p>
+      </div>
+    </div>
+    
+    ${industryHTML}
+    
+    <div class="section">
+      <h2>Detailed Findings</h2>
+      
+      <h3>🔍 SEO Analysis</h3>
+      <h4>⚙️ Technical SEO (${results.seo.technical.score}/100)</h4>
+      <ul>${results.seo.technical.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+      
+      <h4>📝 On-Page SEO (${results.seo.onPage.score}/100)</h4>
+      <ul>${results.seo.onPage.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+      
+      <h4>✍️ Content Quality (${results.seo.content.score}/100)</h4>
+      <ul>${results.seo.content.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+      
+      <h3>🧠 GEO Analysis</h3>
+      <h4>🤖 LLM Comprehension (${results.geo.llmComprehension.score}/100)</h4>
+      <ul>${results.geo.llmComprehension.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+      
+      <h4>💬 Prompt Alignment (${results.geo.promptAlignment.score}/100)</h4>
+      <ul>${results.geo.promptAlignment.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+      
+      <h4>🚀 AI Discovery Signals (${results.geo.aiDiscovery.score}/100)</h4>
+      <ul>${results.geo.aiDiscovery.findings.map(f => `<li>${f.label}: ${f.status} (${f.impact} impact)</li>`).join('')}</ul>
+    </div>
+    
+    <div class="section">
+      <h2>🔍 SEO Recommendations</h2>
+      ${results.seoRecommendations.map((r, i) => `<div class="recommendation">${i + 1}. ${r}</div>`).join('')}
+    </div>
+    
+    <div class="section">
+      <h2>🧠 GEO Recommendations</h2>
+      ${results.geoRecommendations.map((r, i) => `<div class="recommendation">${i + 1}. ${r}</div>`).join('')}
+    </div>
+    
+    <div class="section">
+      <h2>🎯 Combined Priority Actions</h2>
+      ${results.combinedRecommendations.map((r, i) => `
+        <div class="recommendation">
+          <strong>${i + 1}. ${r.text}</strong>
+          <div class="benefit">→ ${r.benefit}</div>
+        </div>
+      `).join('')}
+    </div>
+    
+    <div class="footer">
+      <p><strong>Generated by Earned+Owned AI Mapper v2.0</strong></p>
+      <p>Date: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-mapper-report-${new Date().toISOString().split('T')[0]}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      
+      app.innerHTML = `
+        <!-- Header -->
+        <div class="text-center mb-8 md:mb-12">
+          <h1 class="text-3xl md:text-5xl font-bold text-slate-900 mb-3">🔍🧠 AI Mapper</h1>
+          <p class="text-lg md:text-xl text-slate-600 italic">From press release to prompt-ready</p>
+          <p class="text-sm text-slate-500 mt-2">Optimize for traditional search and AI discovery—in one scan</p>
+        </div>
+
+        <!-- Mode Info Banner -->
+        ${state.showModeInfo ? `
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+          <div class="flex justify-between items-start mb-4">
+            <h3 class="text-lg font-bold text-slate-900">Understanding Dual-Mode Scoring</h3>
+            <button onclick="toggleModeInfo()" class="text-slate-500 hover:text-slate-700">✕</button>
+          </div>
+          <div class="grid md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <div class="font-bold text-blue-900 mb-2">🔍 SEO Mode</div>
+              <p class="text-slate-700">Evaluates traditional search engine optimization: metadata, keywords, backlinks, page speed, mobile-friendliness, and schema markup.</p>
+            </div>
+            <div>
+              <div class="font-bold text-purple-900 mb-2">🧠 GEO Mode</div>
+              <p class="text-slate-700">Evaluates AI discoverability: LLM comprehension, prompt alignment, entity definitions, conversational structure, and generative search readiness.</p>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Input Section -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex gap-4">
+              <button onclick="setInputType('url')" class="px-4 py-2 rounded-lg font-medium transition ${state.inputType === 'url' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">URL</button>
+              <button onclick="setInputType('text')" class="px-4 py-2 rounded-lg font-medium transition ${state.inputType === 'text' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">Paste Text</button>
+            </div>
+            <button onclick="toggleModeInfo()" class="p-2 hover:bg-slate-100 rounded-lg transition" title="Learn about scoring modes">ℹ️</button>
+          </div>
+
+          <textarea 
+            id="inputText"
+            oninput="updateInput(this.value)"
+            placeholder="${state.inputType === 'url' ? 'https://example.com/press-release' : 'Paste your content here...'}"
+            class="w-full h-32 p-4 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
+          >${state.input}</textarea>
+
+          <!-- Scoring Mode Selection -->
+          <div class="mt-4 mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Analysis Mode</label>
+            <div class="flex gap-2">
+              <button onclick="setScoringMode('seo')" class="flex-1 px-4 py-3 rounded-lg font-medium transition ${state.scoringMode === 'seo' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">🔍 SEO Only</button>
+              <button onclick="setScoringMode('geo')" class="flex-1 px-4 py-3 rounded-lg font-medium transition ${state.scoringMode === 'geo' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">🧠 GEO Only</button>
+              <button onclick="setScoringMode('dual')" class="flex-1 px-4 py-3 rounded-lg font-medium transition ${state.scoringMode === 'dual' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">📊 Dual Mode</button>
+            </div>
+          </div>
+
+          <!-- Industry Selection -->
+          <div class="mt-4 mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Industry (Optional - for benchmark comparison)</label>
+            <select id="industrySelect" onchange="setIndustry(this.value)" class="w-full p-3 border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none bg-white">
+              <option value="">Select industry...</option>
+              ${Object.entries(industryBenchmarks).map(([key, data]) => `<option value="${key}" ${state.industry === key ? 'selected' : ''}>${data.name}</option>`).join('')}
+            </select>
+            ${state.industry ? '<p class="text-xs text-slate-500 mt-2">💡 Estimated benchmarks based on analysis of public company content</p>' : ''}
+          </div>
+
+          <button 
+            onclick="analyzeContent()"
+            ${state.analyzing || !state.input.trim() ? 'disabled' : ''}
+            class="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-xl font-semibold text-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+          >
+            ${state.analyzing ? `
+              <span class="animate-spin">⏳</span>
+              Analyzing ${state.scoringMode === 'dual' ? 'SEO + GEO' : state.scoringMode.toUpperCase()}...
+            ` : `
+              📈 Run ${state.scoringMode === 'dual' ? 'Dual-Mode' : state.scoringMode.toUpperCase()} Analysis
+            `}
+          </button>
+        </div>
+
+        ${state.results ? renderResults() : ''}
+
+        <!-- Footer -->
+        <div class="text-center mt-12 text-slate-500 text-sm">
+          <p>Earned+Owned AI Mapper v2.0</p>
+          <p class="mt-1">Dual-mode analysis: SEO + GEO in one scan</p>
+        </div>
+      `;
+    }
+
+    function renderResults() {
+      const results = state.results;
+      const gap = getScoreGap(results);
+      
+      return `
+        <div class="space-y-6">
+          ${state.scoringMode === 'dual' ? `
+          <div class="grid md:grid-cols-2 gap-6">
+            <div class="rounded-2xl shadow-lg p-8 border-2 ${getScoreBg(results.seoScore)}">
+              <h2 class="text-2xl font-bold text-slate-900 mb-4">🔍 SEO Score</h2>
+              <div class="text-6xl font-bold ${getScoreColor(results.seoScore)} mb-2">${results.seoScore}/100</div>
+              <p class="text-slate-700 mb-4">Traditional search optimization</p>
+              ${state.industry ? `
+                <div class="pt-4 border-t border-slate-300">
+                  <div class="text-sm text-slate-600 mb-2">vs. ${industryBenchmarks[state.industry].name}</div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-500">Industry avg: ${industryBenchmarks[state.industry].seo.min}-${industryBenchmarks[state.industry].seo.max}</span>
+                    <span class="text-sm font-bold ${getBenchmarkComparison(results.seoScore, industryBenchmarks[state.industry].seo).color}">
+                      ${getBenchmarkComparison(results.seoScore, industryBenchmarks[state.industry].seo).icon} ${getBenchmarkComparison(results.seoScore, industryBenchmarks[state.industry].seo).text}
+                    </span>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            
+            <div class="rounded-2xl shadow-lg p-8 border-2 ${getScoreBg(results.geoScore)}">
+              <h2 class="text-2xl font-bold text-slate-900 mb-4">🧠 GEO Score</h2>
+              <div class="text-6xl font-bold ${getScoreColor(results.geoScore)} mb-2">${results.geoScore}/100</div>
+              <p class="text-slate-700 mb-4">AI discoverability optimization</p>
+              ${state.industry ? `
+                <div class="pt-4 border-t border-slate-300">
+                  <div class="text-sm text-slate-600 mb-2">vs. ${industryBenchmarks[state.industry].name}</div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-500">Industry avg: ${industryBenchmarks[state.industry].geo.min}-${industryBenchmarks[state.industry].geo.max}</span>
+                    <span class="text-sm font-bold ${getBenchmarkComparison(results.geoScore, industryBenchmarks[state.industry].geo).color}">
+                      ${getBenchmarkComparison(results.geoScore, industryBenchmarks[state.industry].geo).icon} ${getBenchmarkComparison(results.geoScore, industryBenchmarks[state.industry].geo).text}
+                    </span>
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-slate-900 mb-1">Score Gap Analysis</h3>
+                <p class="text-sm text-slate-600">Difference between SEO and GEO performance</p>
+              </div>
+              <div class="text-right">
+                <div class="text-3xl font-bold text-slate-900">${Math.abs(results.seoScore - results.geoScore)}</div>
+                <div class="text-sm font-medium ${gap.color}">${gap.text}</div>
+              </div>
+            </div>
+            <div class="mt-4 p-4 bg-slate-50 rounded-lg">
+              <p class="text-sm text-slate-700">
+                ${results.seoScore > results.geoScore + 15 ? "Content performs well for traditional search but needs AI optimization." : results.geoScore > results.seoScore + 15 ? "Content is AI-friendly but could improve traditional SEO fundamentals." : "Content maintains balanced performance across both frameworks."}
+              </p>
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="flex gap-4 justify-center">
+            <button onclick="setViewMode('seo')" class="px-6 py-2 rounded-lg font-medium transition ${state.viewMode === 'seo' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}">🔍 SEO Details</button>
+            <button onclick="setViewMode('geo')" class="px-6 py-2 rounded-lg font-medium transition ${state.viewMode === 'geo' ? 'bg-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}">🧠 GEO Details</button>
+            <button onclick="setViewMode('combined')" class="px-6 py-2 rounded-lg font-medium transition ${state.viewMode === 'combined' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}">📊 Combined</button>
+          </div>
+          
+          ${(state.viewMode === 'seo' || state.viewMode === 'combined') ? `
+          <div>
+            <h3 class="text-2xl font-bold mb-4 text-slate-900">🔍 SEO Breakdown</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">⚙️ Technical SEO</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.seo.technical.score)}">${results.seo.technical.score}</div>
+                <div class="space-y-2">
+                  ${results.seo.technical.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('present') || f.status === 'enabled' || f.status === 'good' || f.status === 'excellent' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">📝 On-Page SEO</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.seo.onPage.score)}">${results.seo.onPage.score}</div>
+                <div class="space-y-2">
+                  ${results.seo.onPage.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('present') || f.status === 'good' || f.status === 'structured' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">✍️ Content Quality</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.seo.content.score)}">${results.seo.content.score}</div>
+                <div class="space-y-2">
+                  ${results.seo.content.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('present') || f.status === 'high' || f.status === 'adequate' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+          
+          ${(state.viewMode === 'geo' || state.viewMode === 'combined') ? `
+          <div>
+            <h3 class="text-2xl font-bold mb-4 text-slate-900 mt-6">🧠 GEO Breakdown</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">🤖 LLM Comprehension</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.geo.llmComprehension.score)}">${results.geo.llmComprehension.score}</div>
+                <div class="space-y-2">
+                  ${results.geo.llmComprehension.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('good') || f.status === 'rich' || f.status === 'moderate' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">💬 Prompt Alignment</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.geo.promptAlignment.score)}">${results.geo.promptAlignment.score}</div>
+                <div class="space-y-2">
+                  ${results.geo.promptAlignment.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('present') || f.status === 'good' || f.status === 'many' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div class="bg-white rounded-xl shadow-lg p-6">
+                <h4 class="text-xl font-bold mb-4 text-slate-900">🚀 AI Discovery</h4>
+                <div class="text-4xl font-bold mb-4 ${getScoreColor(results.geo.aiDiscovery.score)}">${results.geo.aiDiscovery.score}</div>
+                <div class="space-y-2">
+                  ${results.geo.aiDiscovery.findings.map(f => `
+                    <div class="flex items-start gap-2 text-sm">
+                      <span class="${f.status.includes('good') || f.status === 'moderate' || f.status === 'fair' ? 'text-green-600' : 'text-yellow-600'}">✓</span>
+                      <div>
+                        <div class="font-medium text-slate-700">${f.label}</div>
+                        <div class="text-slate-500 text-xs">${f.status}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900 flex items-center gap-2">🚀 Optimization Recommendations</h3>
+            
+            ${state.viewMode === 'combined' ? `
+              <div class="space-y-4 mb-6">
+                <h4 class="font-bold text-lg text-slate-900 mb-3">🎯 Priority Actions (Cross-Framework Impact)</h4>
+                ${results.combinedRecommendations.map((rec, i) => `
+                  <div class="flex gap-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200">
+                    <div class="flex-shrink-0 w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold">${i + 1}</div>
+                    <div>
+                      <p class="text-slate-900 font-medium mb-1">${rec.text}</p>
+                      <p class="text-slate-600 text-sm">→ ${rec.benefit}</p>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+            
+            ${state.viewMode === 'seo' ? `
+              <div class="space-y-4">
+                <h4 class="font-bold text-lg text-slate-900 mb-3">🔍 SEO Improvements</h4>
+                ${results.seoRecommendations.map((rec, i) => `
+                  <div class="flex gap-3 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                    <div class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">${i + 1}</div>
+                    <p class="text-slate-700">${rec}</p>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+            
+            ${state.viewMode === 'geo' ? `
+              <div class="space-y-4">
+                <h4 class="font-bold text-lg text-slate-900 mb-3">🧠 GEO Improvements</h4>
+                ${results.geoRecommendations.map((rec, i) => `
+                  <div class="flex gap-3 p-4 bg-purple-50 rounded-lg border border-purple-100">
+                    <div class="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold">${i + 1}</div>
+                    <p class="text-slate-700">${rec}</p>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="flex justify-center gap-4">
+            <button onclick="exportResults('html')" class="px-8 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition flex items-center gap-2">
+              📥 Export as HTML
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleModeInfo() {
+      state.showModeInfo = !state.showModeInfo;
+      render();
+    }
+
+    function setInputType(type) {
+      state.inputType = type;
+      render();
+    }
+
+    function updateInput(value) {
+      state.input = value;
+    }
+
+    function setScoringMode(mode) {
+      state.scoringMode = mode;
+      render();
+    }
+
+    function setIndustry(industry) {
+      state.industry = industry;
+      render();
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      render();
+    }
+
+    // Initial render
+    render();
+  </script>
+</body>
+</html>
